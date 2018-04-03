@@ -24,6 +24,9 @@ class SentenceClassification:
         self.stemmer = stemmer
         self.cv = None
 
+        self.clfRf = None
+        self.clfSVC = None
+
     def createTrainingDataframe(self):
 
         """
@@ -89,9 +92,35 @@ class SentenceClassification:
             1.  XGBoost Classifier
             2. Logistic Regression
         """
+        #TrainTestSplit
+        X_train, X_test, y_train, y_test = train_test_split(self.df.drop(['label', 'text', 'stemText'], axis=1),
+                                                            self.df['label'], test_size=0.2)
 
-        #Random Forests
-        clf = 
+        #1. Random Forests
+        clfRf = RandomForestClassifier(verbose=True, n_estimators=1000, n_jobs = -1)
+        clfRf.fit(X_train, y_train)
+        self.clfRf = clfRf
+
+        #2. SVM
+        clfSVC = SVC(kernel = 'linear', verbose=True)
+        clfSVC.fit(X_train, y_train)
+        self.clfSVC = clfSVC
+
+    def featureImportanceList(self):
+
+        #Random Forest Classifers
+        print('------------------Random Forests Feature Importance List------------------\n')
+
+        for feIM in sorted(list(zip(self.df.drop(['label', 'text', 'stemText'], axis=1), self.clfRf.feature_importances_)),
+                           key = lambda x:  x[1], reverse=True):
+            print(feIM)
+
+        #SVM
+        print('------------------Support Vector Machine(SVM) Feature Importance List------------------\n')
+
+        for feIM in sorted(list(zip(self.df.drop(['label', 'text', 'stemText'], axis=1), *self.clfSVC.coef_)),
+                           key = lambda x:  x[1], reverse=True):
+            print(feIM)
 
 
     def Predictions(self):
@@ -102,4 +131,9 @@ te.createTrainingDataframe()
 te.vectorizeInput()
 te.featureEngineering()
 
+print('Model Training Beginning')
+te.modelData()
+
+print('Model Training Beginning')
+te.featureImportanceList()
 
