@@ -134,6 +134,6 @@ te.featureEngineering()
 print('Model Training Beginning')
 te.modelData()
 
-print('Model Training Beginning')
+print('Model Training Done')
 te.featureImportanceList()
 
