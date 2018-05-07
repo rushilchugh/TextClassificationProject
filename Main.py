@@ -22,7 +22,6 @@ from xgboost import XGBClassifier
 from nltk import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
-from nltk import pos_tag
 
 class SentenceClassification:
 
@@ -43,8 +42,13 @@ class SentenceClassification:
         self.clfAdaBoost = None
         self.clfGb = None
         self.clfETC = None
-
         self.clfXGB = None
+
+        self.feListRf = None
+        self.feListSVC = None
+        self.feListAdaBoost = None
+        self.feListGB = None
+        self.feListETC = None
 
     def createTrainingDataframe(self):
 
@@ -89,17 +93,6 @@ class SentenceClassification:
         #Feature 6 - Percentage Exclamations
         self.df['percentageExclamations'] = self.df.apply(lambda row: float(row['Exclamations']) / float(row['sentenceLength']),
                                                       axis=1)
-
-    def Visualizations(self):
-        #Type of Sentence Percenatage
-        self.df.label.value_counts().plot.pie(explode=[0, 0.1], shadow=True)
-
-        #Word Frequency Positive Sentences
-        self.df[self.df.label == True].drop(['label', 'text', 'sentenceLength', 'numberOfExclamations', 'Capitals', 'numberOfWords', 'stemText'],axis=1).sum().sort_values()
-
-        #Word Frequency Negative Sentences
-        self.df[self.df.label == False].drop(['label', 'text', 'sentenceLength', 'numberOfExclamations', 'Capitals', 'numberOfWords', 'stemText'], axis=1).sum().sort_values()
-
     def featureScaling(self):
         self.df[['sentenceLength', 'numberOfWords', 'Capitals', 'Exclamations']] = self.MinMaxScaling.fit_transform(
             self.df[['sentenceLength', 'numberOfWords', 'Capitals', 'Exclamations']])
@@ -145,6 +138,12 @@ class SentenceClassification:
         self.clfSVC = clfSVC
         self.clfETC = clfETC
 
+        self.feListRf = sorted(list(zip(self.df.drop(['label', 'text', 'stemText'], axis=1), self.clfRf.feature_importances_)), key=lambda x:  x[1], reverse=True)
+        self.feListAdaBoost = sorted(list(zip(self.df.drop(['label', 'text', 'stemText'], axis=1), self.clfAdaBoost.feature_importances_)), key=lambda x:  x[1], reverse=True)
+        self.feListGB = sorted(list(zip(self.df.drop(['label', 'text', 'stemText'], axis=1), self.clfGb.feature_importances_)), key=lambda x:  x[1], reverse=True)
+        self.feListSVC = sorted(list(zip(self.df.drop(['label', 'text', 'stemText'], axis=1), *self.clfSVC.coef_)), key=lambda x:  x[1], reverse=True)
+        self.feListETC = sorted(list(zip(self.df.drop(['label', 'text', 'stemText'], axis=1), self.clfETC.feature_importances_)), key=lambda x:  x[1], reverse=True)
+
         """
         Generating Level 1 Predictions
         """
@@ -167,42 +166,66 @@ class SentenceClassification:
 
         self.clfXGB = clfXGBoost
 
+
+    def Visualizations(self):
+
+        fig, axes = plt.subplots(3, 3)
+
+        axes[0, 0].bar(*zip(*self.feListGB[:10]))
+        axes[0, 0].set_title('GBM Feature Importance')
+
+        axes[0, 1].bar(*zip(*self.feListETC[:10]))
+        axes[0, 1].set_title('ETC Feature Importance')
+
+        axes[0, 2].bar(*zip(*self.feListAdaBoost[:10]))
+        axes[0, 2].set_title('AdaBoost Feature Importance')
+
+        axes[1, 0].bar(*zip(*self.feListRf[:10]))
+        axes[1, 0].set_title('Rf Feature Importance')
+
+        axes[1, 1].bar(*zip(*(self.feListSVC[:5] + self.feListSVC[-5:])))
+        axes[1, 1].set_title('SVC Feature Importance')
+
+        plt.subplots_adjust(hspace=0.8)
+        #plt.tight_layout()
+
+        for subPlot in axes.flat:
+            for textLabel in subPlot.get_xticklabels():
+                textLabel.set_rotation(70)
+
+        plt.show()
+
     def featureImportanceList(self):
 
         #Random Forest Classifers
         print('------------------Random Forests Feature Importance List------------------\n')
 
-        for feIM in sorted(list(zip(self.df.drop(['label', 'text', 'stemText'], axis=1), self.clfRf.feature_importances_)),
-                           key = lambda x:  x[1], reverse=True):
+        for feIM in self.feListRf:
             print(feIM)
 
         #SVM
         print('------------------Support Vector Machine(SVM) Feature Importance List------------------\n')
 
-        for feIM in sorted(list(zip(self.df.drop(['label', 'text', 'stemText'], axis=1), *self.clfSVC.coef_)),
-                           key = lambda x:  x[1], reverse=True):
+        for feIM in self.feListSVC:
             print(feIM)
 
         #AdaBoost
         print('------------------AdaBoost Feature Importance List------------------\n')
 
-        for feIM in sorted(list(zip(self.df.drop(['label', 'text', 'stemText'], axis=1), self.clfAdaBoost.feature_importances_)),
-                           key = lambda x:  x[1], reverse=True):
+        for feIM in self.feListAdaBoost:
             print(feIM)
 
         #Gradient Boosting
         print('------------------Gradient Boosting Machine Feature Importance List------------------\n')
 
-        for feIM in sorted(list(zip(self.df.drop(['label', 'text', 'stemText'], axis=1), self.clfGb.feature_importances_)),
-                           key = lambda x:  x[1], reverse=True):
+        for feIM in self.feListGB:
             print(feIM)
 
 
         #Extra Trees
         print('------------------Extra Trees Feature Importance List------------------\n')
 
-        for feIM in sorted(list(zip(self.df.drop(['label', 'text', 'stemText'], axis=1), self.clfETC.feature_importances_)),
-                           key = lambda x:  x[1], reverse=True):
+        for feIM in self.feListETC:
             print(feIM)
 
     def predictSentence(self, sentence):
@@ -225,18 +248,14 @@ class SentenceClassification:
         8. Predict final category through the Second Level Model trained upon the generated predictions
         """
 
-
-
 te = SentenceClassification(trainingLoc=r'C:\NOS\Coding_6\Project\Datasets\Phase A\training.txt', delimiter='\t')
 te.createTrainingDataframe()
 te.vectorizeInput()
 te.featureEngineering()
 te.featureScaling()
 
-"""
 print('Model Training Beginning')
 te.modelData()
 
 print('Model Training Done')
-te.featureImportanceList()
-"""
+te.Visualizations()
